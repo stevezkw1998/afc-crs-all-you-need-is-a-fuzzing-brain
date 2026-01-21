@@ -160,6 +160,37 @@ check_python() {
     fi
 }
 
+check_rust() {
+    if command -v rustc &> /dev/null; then
+        local rust_version
+        rust_version=$(rustc --version 2>&1 || echo "unknown")
+        print_info "Rust compiler found: $rust_version"
+        return 0
+    fi
+
+    print_warn "Rust compiler not found, installing via rustup..."
+
+    # Install rustup + stable toolchain non-interactively
+    if curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; then
+        # Load cargo environment for current shell
+        if [ -f "$HOME/.cargo/env" ]; then
+            # shellcheck disable=SC1090
+            source "$HOME/.cargo/env"
+        fi
+        if command -v rustc &> /dev/null; then
+            print_info "Rust compiler installed successfully: $(rustc --version 2>&1)"
+            return 0
+        else
+            print_error "Rust installation finished but rustc not found in PATH"
+            return 1
+        fi
+    else
+        print_error "Failed to install Rust via rustup"
+        print_error "Please install Rust manually from https://rustup.rs"
+        return 1
+    fi
+}
+
 check_docker() {
     if ! command -v docker &> /dev/null; then
         print_error "Docker is not installed!"
@@ -476,6 +507,7 @@ check_environment() {
     local checks_passed=true
 
     check_python || checks_passed=false
+    check_rust || checks_passed=false
     check_docker || checks_passed=false
 
     if [ "$checks_passed" = false ]; then
